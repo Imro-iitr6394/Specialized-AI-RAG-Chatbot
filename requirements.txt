@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+streamlit
+pinecone-client
+langchain-google-genai
+langchain-huggingface
+langchain-pinecone
+langchain-community
+python-dotenv
+sentence-transformers
+wikipedia
