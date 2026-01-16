@@ -62,7 +62,7 @@ Start the backend service:
 ```bash
 python api.py
 ```
-*Chat endpoint available at: http://127.0.0.1:8000/chat*
+*Chat endpoint available at:https://perspectived-sharda-shrewlike.ngrok-free.dev/
 
 ## 🧠 Knowledge Base Setup
 (Only required once)
