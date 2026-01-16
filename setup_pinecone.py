@@ -19,6 +19,7 @@ load_dotenv(override=True)
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "ai-knowledge-rag")
 DIMENSION = 384  # Dimension for all-MiniLM-L6-v2
+ENVIRONMENT = os.getenv("PINECONE_ENVIRONMENT", "us-west1-gcp")  # your Pinecone environment
 
 def setup_pinecone():
     """
@@ -27,59 +28,62 @@ def setup_pinecone():
     if not PINECONE_API_KEY:
         raise ValueError("PINECONE_API_KEY not found in environment variables.")
 
+    # ----------------------------
+    # New Pinecone SDK: create client
+    # ----------------------------
     pc = Pinecone(api_key=PINECONE_API_KEY)
-    
-    # Check if index exists, if not create it
-    existing_indexes = pc.list_indexes().names()
-    if INDEX_NAME not in existing_indexes:
+
+    # Check if index exists
+    if INDEX_NAME not in pc.list_indexes().names():
         print(f"Creating new index: {INDEX_NAME}")
         pc.create_index(
             name=INDEX_NAME,
             dimension=DIMENSION,
             metric="cosine",
-            spec=ServerlessSpec(
-                cloud="aws",
-                region="us-east-1"
-            )
+            spec=ServerlessSpec(cloud="aws", region=ENVIRONMENT)
         )
+
         # Wait for index to be ready
-        while not pc.describe_index(INDEX_NAME).status['ready']:
-            print("Waiting for index to serve...")
+        while True:
+            index_info = pc.describe_index(INDEX_NAME)
+            if index_info.status['ready']:
+                break
+            print("Waiting for index to be ready...")
             time.sleep(1)
     else:
         print(f"Index '{INDEX_NAME}' already exists.")
-            
-    return pc.Index(INDEX_NAME)
+
+    # Connect to the index
+    index = pc.Index(INDEX_NAME)
+    return index
 
 def upload_to_pinecone(index, chunks):
     """
     Encodes text chunks and uploads them to the Pinecone index.
     """
     model = SentenceTransformer('all-MiniLM-L6-v2')
-    
+
     print(f"Uploading {len(chunks)} chunks to Pinecone...")
-    
+
     batch_size = 100
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i:i + batch_size]
-        
-        # Prepare vectors
-        # ID format: title_chunk_id
+
         ids = [f"{c['metadata']['title']}_{c['metadata']['chunk_id']}" for c in batch]
         texts = [c['text'] for c in batch]
-        
-        # Generate Embeddings
+
+        # Generate embeddings
         embeddings = model.encode(texts).tolist()
-        
-        # Prepare Metadata
+
+        # Prepare metadata
         metadata = []
         for c in batch:
             m = c['metadata']
-            m['text'] = c['text'] # Store text in metadata for retrieval
+            m['text'] = c['text']  # Store text in metadata for retrieval
             metadata.append(m)
-            
+
         # Upsert to Pinecone
-        index.upsert(vectors=zip(ids, embeddings, metadata))
+        index.upsert(vectors=list(zip(ids, embeddings, metadata)))
         print(f"Uploaded batch {(i // batch_size) + 1} / {(len(chunks) // batch_size) + 1}")
 
 def main():
@@ -87,17 +91,18 @@ def main():
     try:
         # 1. Fetch Data
         chunks = fetch_and_chunk_ai_data()
-        
+
         # 2. Setup Database
         index = setup_pinecone()
-        
+
         # 3. Upload Data
         upload_to_pinecone(index, chunks)
-        
+
         print("\nSUCCESS: Knowledge base setup complete!")
-        
+
     except Exception as e:
         print(f"\nERROR: Setup failed: {e}")
 
 if __name__ == "__main__":
     main()
+

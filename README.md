@@ -62,7 +62,7 @@ Start the backend service:
 ```bash
 python api.py
 ```
-*Documentation available at: http://127.0.0.1:8000/docs*
+*Chat endpoint available at: http://127.0.0.1:8000/chat*
 
 ## 🧠 Knowledge Base Setup
 (Only required once)
