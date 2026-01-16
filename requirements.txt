@@ -3,7 +3,7 @@ uvicorn
 streamlit
 
 pinecone
-langchain
+
 langchain-google-genai
 langchain-huggingface
 langchain-pinecone
